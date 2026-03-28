@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cabinet Médical Pro v3 - Gestion Complète</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* MODIFICATION POUR IMPRESSION DEMI-FEUILLE (A5) */
+        @media print {
+            @page {
+                size: A5; /* Définit la taille du papier en A5 */
+                margin: 0;
+            }
+            .no-print { display: none !important; }
+            #ordonnance-print { 
+                display: block !important; 
+                border: none; 
+                padding: 10mm !important; 
+                width: 148mm !important; /* Largeur A5 */
+                height: 210mm !important; /* Hauteur A5 */
+                overflow: hidden;
+            }
+            body { background: white; }
+            
+            /* Ajustement des textes pour le format plus petit */
+            #ordonnance-print h1 { font-size: 1.5rem !important; }
+            #ordonnance-print .text-4xl { font-size: 2rem !important; margin-bottom: 1.5rem !important; }
+            #pr-contenu { min-height: 300px !important; font-size: 1.1rem !important; line-height: 1.8rem !important; }
+        }
+
+        #ordonnance-print { display: none; }
+        .logo-preview { max-height: 90px; max-width: 180px; object-fit: contain; }
+        .bg-medical { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); }
+    </style>
+</head>
+<body class="bg-medical text-gray-800 min-h-screen">
+
+    <div class="no-print">
+        <nav class="bg-white shadow-lg border-b-4 border-blue-600 p-4 sticky top-0 z-40">
+            <div class="container mx-auto flex flex-wrap justify-between items-center gap-6">
+                <div class="flex items-center gap-5">
+                    <div class="relative group">
+                        <label for="logo-upload" class="cursor-pointer bg-blue-50 border-2 border-dashed border-blue-200 rounded-2xl p-4 flex items-center justify-center hover:bg-blue-100 transition shadow-inner">
+                            <i class="fa-solid fa-cloud-upload text-blue-400 text-xl" id="upload-icon"></i>
+                            <input type="file" id="logo-upload" accept="image/*" class="hidden" onchange="loadLogo(event)">
+                            <img id="logo-img" class="hidden logo-preview absolute inset-0 m-auto rounded-lg">
+                        </label>
+                    </div>
+                    <div>
+                        <input type="text" id="doc-nom" value="Dr. Votre Nom" class="font-bold text-2xl block outline-none text-blue-900 bg-transparent border-b border-transparent focus:border-blue-200">
+                        <input type="text" id="doc-info" value="Médecin Spécialiste - Inscription N° 0000" class="text-sm text-blue-500 block w-full outline-none bg-transparent">
+                    </div>
+                </div>
+                <div class="flex flex-col items-end space-y-1">
+                    <div class="flex items-center gap-2 text-gray-600">
+                        <i class="fa-solid fa-phone-flip text-xs"></i>
+                        <input type="text" id="doc-contact" value="05 50 00 00 00" class="text-sm font-semibold outline-none bg-transparent text-right">
+                    </div>
+                    <div class="flex items-center gap-2 text-gray-400 italic">
+                        <i class="fa-solid fa-location-dot text-xs"></i>
+                        <input type="text" id="doc-adresse" value="Adresse du Cabinet, Ville" class="text-xs outline-none bg-transparent text-right w-64">
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="container mx-auto p-6 max-w-6xl">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 border-blue-500">
+                    <p class="text-gray-400 text-xs font-bold uppercase">Total Patients</p>
+                    <h3 id="stat-patients" class="text-3xl font-black text-slate-700">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 border-emerald-500">
+                    <p class="text-gray-400 text-xs font-bold uppercase">Consultations</p>
+                    <h3 id="stat-cons" class="text-3xl font-black text-slate-700">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 border-orange-400">
+                    <p class="text-gray-400 text-xs font-bold uppercase">RDV à venir</p>
+                    <h3 id="stat-rdv" class="text-3xl font-black text-slate-700">0</h3>
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 mb-8">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-search absolute left-5 top-5 text-slate-300"></i>
+                    <input type="text" id="recherche" onkeyup="afficherPatients()" placeholder="Rechercher un dossier patient..." class="w-full pl-14 pr-6 py-5 rounded-3xl shadow-md outline-none focus:ring-4 focus:ring-blue-100 bg-white border-none transition-all text-lg">
+                </div>
+                <button onclick="toggleModal(true)" class="bg-blue-600 hover:bg-blue-700 text-white px-10 py-5 rounded-3xl font-bold shadow-xl flex items-center justify-center gap-3 transform active:scale-95 transition-all text-lg">
+                    <i class="fa-solid fa-notes-medical"></i> Nouvelle Consultation
+                </button>
+            </div>
+
+            <div class="bg-white rounded-[2rem] shadow-xl border overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 text-slate-400 text-xs uppercase tracking-widest border-b">
+                        <tr>
+                            <th class="p-6">Identité du Patient</th>
+                            <th class="p-6">Dernier passage</th>
+                            <th class="p-6">Historique des Visites</th>
+                            <th class="p-6 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="liste-patients" class="divide-y divide-slate-100"></tbody>
+                </table>
+                <div id="msg-vide" class="p-20 text-center flex flex-col items-center gap-4">
+                    <i class="fa-solid fa-folder-open text-5xl text-slate-200"></i>
+                    <p class="text-slate-400 italic">Aucune donnée patient pour le moment.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL (Inchangé) -->
+    <div id="modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 no-print">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-3xl p-10 shadow-2xl max-h-[90vh] overflow-y-auto relative">
+            <button onclick="toggleModal(false)" class="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition"><i class="fa-solid fa-circle-xmark text-3xl"></i></button>
+            <h2 class="text-3xl font-black mb-8 text-slate-800 flex items-center gap-4">
+                <span class="bg-blue-100 text-blue-600 p-3 rounded-2xl"><i class="fa-solid fa-user-doctor"></i></span>
+                Examen Clinique
+            </h2>
+            <form id="form-patient" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2">
+                        <label class="text-xs font-black text-slate-400 uppercase ml-2">Nom & Prénom</label>
+                        <input type="text" id="nom" required class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold text-slate-700">
+                    </div>
+                    <div>
+                        <label class="text-xs font-black text-slate-400 uppercase ml-2">Âge (Ans)</label>
+                        <input type="number" id="age" required class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold text-slate-700">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <label class="text-xs font-black text-slate-400 uppercase ml-2">Date Consultation</label>
+                        <input type="date" id="date-cons" required class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 text-slate-600">
+                    </div>
+                    <div>
+                        <label class="text-xs font-black text-blue-400 uppercase ml-2">Date Prochain RDV</label>
+                        <input type="date" id="date-rdv" class="w-full p-4 bg-blue-50/50 border-2 border-blue-100 rounded-2xl outline-none focus:border-blue-500 text-blue-600">
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-100">
+                    <label class="text-xs font-black text-slate-400 uppercase ml-2 block mb-4">Prescription Médicale</label>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <select id="select-cat" onchange="updateMedList()" class="p-3 border-2 border-slate-200 rounded-xl bg-white text-xs font-bold outline-none">
+                            <option value="douleur">Douleur & Fièvre</option>
+                            <option value="antibio">Antibiotiques</option>
+                            <option value="tension">Hypertension</option>
+                            <option value="diabete">Diabète</option>
+                            <option value="digestion">Digestion / Estomac</option>
+                            <option value="vitamine">Vitamines / Fortifiants</option>
+                            <option value="respi">Respiratoire / Toux</option>
+                        </select>
+                        <select id="select-med" class="flex-1 p-3 border-2 border-slate-200 rounded-xl bg-white text-xs outline-none"></select>
+                        <button type="button" onclick="ajouterMed()" class="bg-blue-600 text-white w-12 rounded-xl"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <textarea id="ordonnance" rows="6" required class="w-full p-5 bg-white border-2 border-slate-200 rounded-2xl font-mono text-sm shadow-inner"></textarea>
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button type="button" onclick="toggleModal(false)" class="flex-1 py-4 text-slate-400 font-bold hover:bg-slate-50 rounded-2xl">Annuler</button>
+                    <button type="submit" class="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-xl">Enregistrer le dossier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ZONE D'IMPRESSION (Ajustée pour Demi-feuille) -->
+    <div id="ordonnance-print" class="bg-white text-black mx-auto relative">
+        <div class="flex justify-between items-start border-b-2 border-blue-900 pb-4 mb-4">
+            <div class="flex gap-4 items-center">
+                <img id="pr-logo" class="logo-preview hidden rounded-lg">
+                <div>
+                    <h1 id="pr-doc-nom" class="text-xl font-bold text-blue-900 leading-none"></h1>
+                    <p id="pr-doc-info" class="text-xs font-semibold text-gray-700"></p>
+                    <p id="pr-doc-contact" class="text-[10px] text-gray-500"></p>
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="text-xs font-bold">Le : <span id="pr-date"></span></p>
+            </div>
+        </div>
+
+        <div class="mb-4 p-3 bg-slate-50 rounded-lg flex justify-between items-center italic border">
+            <p class="text-sm">Patient : <span id="pr-pat-nom" class="font-bold not-italic uppercase"></span></p>
+            <p class="text-sm">Âge : <span id="pr-pat-age" class="font-bold not-italic"></span> Ans</p>
+        </div>
+
+        <div class="py-2">
+            <h2 class="text-2xl font-serif text-center mb-6 uppercase tracking-widest text-blue-900/30 font-black">Ordonnance</h2>
+            <div id="pr-contenu" class="text-lg leading-relaxed whitespace-pre-line px-4 min-h-[400px] font-serif italic text-slate-800"></div>
+        </div>
+
+        <div class="flex justify-between items-end mt-4">
+            <div id="pr-rdv-box" class="p-2 bg-blue-50 border-l-2 border-blue-500 rounded-r-lg hidden">
+                <p class="text-[8px] uppercase font-black text-blue-400">Prochain RDV</p>
+                <p class="text-xs font-bold text-blue-900" id="pr-rdv-date"></p>
+            </div>
+            <div class="text-center italic border-t border-slate-200 pt-2 px-6">
+                <p class="text-[10px] text-slate-400">Cachet et Signature</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const MEDS = {
+            douleur: ["DOLIPRANE 1g (1 tab 3x/j)", "PARACETAMOL 500mg (2 tab 3x/j)", "PROFENID 100mg (Matin/Soir)", "VOLTARENE 75mg (1 inj/j)", "ASPEGIC 1000mg", "EFFERALGAN Codeïné"],
+            antibio: ["AMOXICILLINE 1g (M/S)", "AUGMENTIN 1g (3x/j)", "CLAMOCYL 500mg", "ZITHROMAX 500mg", "PYOSTACINE 500mg", "OROKEN 200mg"],
+            tension: ["AMLOGAL 5mg", "APROVEL 150mg", "LASILIX 40mg", "COVERAM 5mg/5mg", "TENORMINE 100mg"],
+            diabete: ["GLUCOPHAGE 850mg", "DIAMICRON 60mg", "JANUVIA 100mg", "STAGID 700mg", "AMAREL 2mg"],
+            digestion: ["INEXIUM 40mg", "MOPRAL 20mg", "GAVISCON", "SPASFON", "METEOSPASMYL", "DEBRIDAT"],
+            vitamine: ["UVEDOSE 100.000 UI", "MAGNE B6", "AZINC Vitalité", "FEROSTRANE Sirop", "TARDYFERON B9"],
+            respi: ["VENTOLINE Spray", "CLARITINE 10mg", "RHUMAGRIP", "TOPLEXIL Sirop", "SOLUPRED 20mg"]
+        };
+
+        let db = JSON.parse(localStorage.getItem('med_db_v3')) || [];
+        let logoBase64 = localStorage.getItem('med_logo_v3') || "";
+
+        window.onload = () => {
+            updateMedList();
+            afficherPatients();
+            if(logoBase64) {
+                document.getElementById('logo-img').src = logoBase64;
+                document.getElementById('logo-img').classList.remove('hidden');
+                document.getElementById('upload-icon').classList.add('hidden');
+            }
+        };
+
+        function updateMedList() {
+            const cat = document.getElementById('select-cat').value;
+            const medSelect = document.getElementById('select-med');
+            medSelect.innerHTML = MEDS[cat].map(m => `<option value="${m}">${m.split('(')[0]}</option>`).join('');
+        }
+
+        function ajouterMed() {
+            const medFull = document.getElementById('select-med').value;
+            const area = document.getElementById('ordonnance');
+            area.value += (area.value ? "\n" : "") + "• " + medFull;
+        }
+
+        function loadLogo(event) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                logoBase64 = reader.result;
+                localStorage.setItem('med_logo_v3', logoBase64);
+                document.getElementById('logo-img').src = logoBase64;
+                document.getElementById('logo-img').classList.remove('hidden');
+                document.getElementById('upload-icon').classList.add('hidden');
+            };
+            reader.readAsDataURL(event.target.files[0]);
+        }
+
+        function toggleModal(show) {
+            document.getElementById('modal').classList.toggle('hidden', !show);
+            if(show) { document.getElementById('date-cons').valueAsDate = new Date(); document.getElementById('nom').focus(); }
+        }
+
+        document.getElementById('form-patient').onsubmit = (e) => {
+            e.preventDefault();
+            const patient = {
+                id: Date.now(),
+                nom: document.getElementById('nom').value.trim().toUpperCase(),
+                age: document.getElementById('age').value,
+                ordonnance: document.getElementById('ordonnance').value,
+                date: document.getElementById('date-cons').value,
+                rdv: document.getElementById('date-rdv').value
+            };
+            db.unshift(patient);
+            localStorage.setItem('med_db_v3', JSON.stringify(db));
+            afficherPatients();
+            toggleModal(false);
+            e.target.reset();
+        };
+
+        function afficherPatients() {
+            const query = document.getElementById('recherche').value.toLowerCase();
+            const list = document.getElementById('liste-patients');
+            list.innerHTML = "";
+            const uniquePatients = [...new Set(db.map(p => p.nom))];
+            document.getElementById('stat-patients').innerText = uniquePatients.length;
+            document.getElementById('stat-cons').innerText = db.length;
+            document.getElementById('stat-rdv').innerText = db.filter(p => p.rdv && new Date(p.rdv) >= new Date()).length;
+            const filtered = uniquePatients.filter(n => n.toLowerCase().includes(query));
+            document.getElementById('msg-vide').classList.toggle('hidden', filtered.length > 0);
+            filtered.forEach(nom => {
+                const visites = db.filter(p => p.nom === nom);
+                const last = visites[0];
+                list.innerHTML += `<tr class="group hover:bg-slate-50 transition-all">
+                    <td class="p-6"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black">${nom[0]}</div>
+                    <div><p class="font-black text-slate-700">${nom}</p><p class="text-xs text-slate-400">${last.age} Ans</p></div></div></td>
+                    <td class="p-6 text-sm font-bold text-slate-500 italic">${new Date(last.date).toLocaleDateString('fr-FR')}</td>
+                    <td class="p-6"><div class="flex flex-wrap gap-2">${visites.slice(0, 5).map(v => `<button onclick="imprimer(${v.id})" class="bg-white border-2 border-slate-100 text-[10px] font-black px-3 py-1 rounded-lg hover:border-blue-500 shadow-sm">${new Date(v.date).toLocaleDateString('fr-FR')}</button>`).join('')}</div></td>
+                    <td class="p-6 text-right flex gap-3 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="imprimer(${last.id})" class="bg-emerald-500 text-white w-10 h-10 rounded-xl shadow-lg"><i class="fa-solid fa-print"></i></button>
+                        <button onclick="supprimerNom('${nom}')" class="bg-red-50 text-red-400 w-10 h-10 rounded-xl"><i class="fa-solid fa-trash"></i></button>
+                    </td></tr>`;
+            });
+        }
+
+        function imprimer(id) {
+            const p = db.find(p => p.id === id);
+            document.getElementById('pr-doc-nom').innerText = document.getElementById('doc-nom').value;
+            document.getElementById('pr-doc-info').innerText = document.getElementById('doc-info').value;
+            document.getElementById('pr-doc-contact').innerText = document.getElementById('doc-contact').value + " • " + document.getElementById('doc-adresse').value;
+            if(logoBase64) { document.getElementById('pr-logo').src = logoBase64; document.getElementById('pr-logo').classList.remove('hidden'); }
+            document.getElementById('pr-pat-nom').innerText = p.nom;
+            document.getElementById('pr-pat-age').innerText = p.age;
+            document.getElementById('pr-date').innerText = new Date(p.date).toLocaleDateString('fr-FR');
+            document.getElementById('pr-contenu').innerText = p.ordonnance;
+            const rdvBox = document.getElementById('pr-rdv-box');
+            if(p.rdv) { rdvBox.classList.remove('hidden'); document.getElementById('pr-rdv-date').innerText = new Date(p.rdv).toLocaleDateString('fr-FR'); } else { rdvBox.classList.add('hidden'); }
+            window.print();
+        }
+
+        function supprimerNom(nom) {
+            if(confirm(`Supprimer tout le dossier de ${nom} ?`)) { db = db.filter(p => p.nom !== nom); localStorage.setItem('med_db_v3', JSON.stringify(db)); afficherPatients(); }
+        }
+    </script>
+</body>
+</html>
